@@ -46,7 +46,7 @@ impl App {
                     if telemetry_log.ready() && frame.connected {
                         if frame.player_has_vehicle {
                             info!(
-                                "[LIVE] G {:>2} | {:>3.0} km/h | RPM {:>5.0}/{:<5.0} | THR {:>3.0}% | BRK {:>3.0}% | ABS {} | TC {} | L2 {} | R2 {}",
+                                "[LIVE] G {:>2} | {:>3.0} km/h | RPM {:>5.0}/{:<5.0} | THR {:>3.0}% | BRK {:>3.0}% | ABS {} | LOCK {:>3.0}% | TC {} | SLIP {:>3.0}% | L2 {} | R2 {}",
                                 frame.gear,
                                 frame.speed_mps * 3.6,
                                 frame.rpm,
@@ -54,7 +54,9 @@ impl App {
                                 frame.throttle * 100.0,
                                 frame.brake * 100.0,
                                 active_label(frame.abs_active),
+                                frame.max_wheel_lock_ratio * 100.0,
                                 active_label(frame.tc_active),
+                                frame.max_wheel_slip_ratio * 100.0,
                                 trigger_frame.left,
                                 trigger_frame.right,
                             );

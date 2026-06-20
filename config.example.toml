@@ -21,6 +21,10 @@ max_force = 8
 start_position = 2
 abs_pulse_force = 9
 abs_pulse_frequency = 8
+lockup_enabled = true
+# TinyPedal-style wheel lock: raw brake gate and braking slip threshold.
+lockup_brake_threshold = 0.02
+lockup_slip_ratio_threshold = 0.30
 
 [effects.throttle]
 enabled = true
@@ -30,6 +34,10 @@ max_force = 4
 start_position = 2
 tc_pulse_force = 6
 tc_pulse_frequency = 7
+wheel_slip_enabled = true
+# TinyPedal-style wheel spin: raw throttle gate and acceleration slip threshold.
+wheel_slip_throttle_threshold = 0.02
+wheel_slip_ratio_threshold = 0.10
 
 [effects.rpm]
 enabled = true

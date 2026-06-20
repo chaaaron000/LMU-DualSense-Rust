@@ -44,7 +44,7 @@ impl EffectMapper {
         };
 
         TriggerOutputFrame {
-            left: map_brake(brake, frame.abs_active, &self.config.brake),
+            left: map_brake(brake, frame, &self.config.brake),
             right: self.map_throttle(frame, throttle),
         }
     }
@@ -64,15 +64,15 @@ impl EffectMapper {
             };
         }
 
-        map_throttle(throttle, frame.tc_active, &self.config.throttle)
+        map_throttle(throttle, frame, &self.config.throttle)
     }
 }
 
-fn map_brake(value: f32, abs_active: bool, config: &BrakeEffectConfig) -> TriggerEffect {
+fn map_brake(value: f32, frame: TelemetryFrame, config: &BrakeEffectConfig) -> TriggerEffect {
     if !config.enabled {
         return TriggerEffect::Normal;
     }
-    if abs_active {
+    if frame.abs_active || wheel_lock_active(frame, config) {
         return TriggerEffect::Pulse {
             start: config.start_position.min(10),
             force: config.abs_pulse_force.min(10),
@@ -88,11 +88,17 @@ fn map_brake(value: f32, abs_active: bool, config: &BrakeEffectConfig) -> Trigge
     )
 }
 
-fn map_throttle(value: f32, tc_active: bool, config: &ThrottleEffectConfig) -> TriggerEffect {
+fn wheel_lock_active(frame: TelemetryFrame, config: &BrakeEffectConfig) -> bool {
+    config.lockup_enabled
+        && frame.brake > config.lockup_brake_threshold
+        && frame.max_wheel_lock_ratio >= config.lockup_slip_ratio_threshold
+}
+
+fn map_throttle(value: f32, frame: TelemetryFrame, config: &ThrottleEffectConfig) -> TriggerEffect {
     if !config.enabled {
         return TriggerEffect::Normal;
     }
-    if tc_active {
+    if frame.tc_active || wheel_slip_active(frame, config) {
         return TriggerEffect::Pulse {
             start: config.start_position.min(10),
             force: config.tc_pulse_force.min(10),
@@ -106,6 +112,12 @@ fn map_throttle(value: f32, tc_active: bool, config: &ThrottleEffectConfig) -> T
         config.max_force,
         config.start_position,
     )
+}
+
+fn wheel_slip_active(frame: TelemetryFrame, config: &ThrottleEffectConfig) -> bool {
+    config.wheel_slip_enabled
+        && frame.throttle > config.wheel_slip_throttle_threshold
+        && frame.max_wheel_slip_ratio >= config.wheel_slip_ratio_threshold
 }
 
 fn resistance(value: f32, deadzone: f32, min: u8, max: u8, start: u8) -> TriggerEffect {
@@ -196,11 +208,71 @@ mod tests {
     }
 
     #[test]
+    fn wheel_lock_overrides_brake_without_abs() {
+        let mut frame = connected_frame();
+        frame.brake = 0.8;
+        frame.max_wheel_lock_ratio = 0.4;
+
+        assert!(matches!(
+            mapper().map(frame).left,
+            TriggerEffect::Pulse { .. }
+        ));
+    }
+
+    #[test]
+    fn wheel_lock_requires_raw_brake_input() {
+        let mut frame = connected_frame();
+        frame.brake = 0.02;
+        frame.max_wheel_lock_ratio = 0.8;
+        assert!(!matches!(
+            mapper().map(frame).left,
+            TriggerEffect::Pulse { .. }
+        ));
+
+        frame.brake = 0.021;
+        frame.max_wheel_lock_ratio = 0.29;
+        assert!(!matches!(
+            mapper().map(frame).left,
+            TriggerEffect::Pulse { .. }
+        ));
+    }
+
+    #[test]
     fn tc_overrides_throttle() {
         let mut frame = connected_frame();
         frame.throttle = 0.9;
         frame.tc_active = true;
         assert!(matches!(
+            mapper().map(frame).right,
+            TriggerEffect::Pulse { .. }
+        ));
+    }
+
+    #[test]
+    fn wheel_slip_overrides_throttle_without_tc() {
+        let mut frame = connected_frame();
+        frame.throttle = 0.8;
+        frame.max_wheel_slip_ratio = 0.2;
+
+        assert!(matches!(
+            mapper().map(frame).right,
+            TriggerEffect::Pulse { .. }
+        ));
+    }
+
+    #[test]
+    fn wheel_slip_requires_raw_throttle_input() {
+        let mut frame = connected_frame();
+        frame.throttle = 0.02;
+        frame.max_wheel_slip_ratio = 0.8;
+        assert!(!matches!(
+            mapper().map(frame).right,
+            TriggerEffect::Pulse { .. }
+        ));
+
+        frame.throttle = 0.021;
+        frame.max_wheel_slip_ratio = 0.09;
+        assert!(!matches!(
             mapper().map(frame).right,
             TriggerEffect::Pulse { .. }
         ));

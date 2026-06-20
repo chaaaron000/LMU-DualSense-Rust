@@ -15,6 +15,8 @@ pub struct TelemetryFrame {
     pub tc_level: i32,
     pub tc_slip_level: i32,
     pub tc_cut_level: i32,
+    pub max_wheel_lock_ratio: f32,
+    pub max_wheel_slip_ratio: f32,
     pub speed_mps: f32,
     pub pit_limiter_active: bool,
 }
@@ -37,6 +39,8 @@ impl Default for TelemetryFrame {
             tc_level: 0,
             tc_slip_level: 0,
             tc_cut_level: 0,
+            max_wheel_lock_ratio: 0.0,
+            max_wheel_slip_ratio: 0.0,
             speed_mps: 0.0,
             pit_limiter_active: false,
         }

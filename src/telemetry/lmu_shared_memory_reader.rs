@@ -16,6 +16,7 @@ pub struct LmuSharedMemoryReader {
     #[cfg(windows)]
     connection: Option<LmuSharedMemory>,
     snapshot: Vec<u8>,
+    wheel_lock: lmu_layout::WheelLockEstimator,
     next_reconnect: Instant,
     connected: bool,
     player_has_vehicle: bool,
@@ -33,6 +34,7 @@ impl LmuSharedMemoryReader {
             #[cfg(windows)]
             connection: None,
             snapshot: vec![0; lmu_layout::SNAPSHOT_SIZE],
+            wheel_lock: lmu_layout::WheelLockEstimator::default(),
             next_reconnect: Instant::now(),
             connected: false,
             player_has_vehicle: false,
@@ -89,6 +91,7 @@ impl LmuSharedMemoryReader {
     fn disconnect(&mut self, error: &anyhow::Error) {
         warn!("[LMU] Connection lost | {error}");
         self.connection = None;
+        self.wheel_lock.reset();
         self.next_reconnect = Instant::now() + RECONNECT_INTERVAL;
         self.waiting_logged = false;
         self.update_state(TelemetryFrame::default());
@@ -127,7 +130,7 @@ impl TelemetryReader for LmuSharedMemoryReader {
                 return Ok(TelemetryFrame::default());
             }
 
-            match lmu_layout::parse_snapshot(&self.snapshot) {
+            match lmu_layout::parse_snapshot(&self.snapshot, &mut self.wheel_lock) {
                 Ok(frame) => {
                     self.update_state(frame);
                     Ok(frame)

@@ -149,6 +149,22 @@ impl AppConfig {
                 "effects.rpm.rev_limit_ratio",
                 self.effects.rpm.rev_limit_ratio,
             ),
+            (
+                "effects.brake.lockup_brake_threshold",
+                self.effects.brake.lockup_brake_threshold,
+            ),
+            (
+                "effects.brake.lockup_slip_ratio_threshold",
+                self.effects.brake.lockup_slip_ratio_threshold,
+            ),
+            (
+                "effects.throttle.wheel_slip_throttle_threshold",
+                self.effects.throttle.wheel_slip_throttle_threshold,
+            ),
+            (
+                "effects.throttle.wheel_slip_ratio_threshold",
+                self.effects.throttle.wheel_slip_ratio_threshold,
+            ),
             ("smoothing.attack", self.smoothing.attack),
             ("smoothing.release", self.smoothing.release),
         ] {
@@ -238,6 +254,9 @@ pub struct BrakeEffectConfig {
     pub start_position: u8,
     pub abs_pulse_force: u8,
     pub abs_pulse_frequency: u8,
+    pub lockup_enabled: bool,
+    pub lockup_brake_threshold: f32,
+    pub lockup_slip_ratio_threshold: f32,
 }
 
 impl Default for BrakeEffectConfig {
@@ -250,6 +269,9 @@ impl Default for BrakeEffectConfig {
             start_position: 2,
             abs_pulse_force: 9,
             abs_pulse_frequency: 8,
+            lockup_enabled: true,
+            lockup_brake_threshold: 0.02,
+            lockup_slip_ratio_threshold: 0.30,
         }
     }
 }
@@ -264,6 +286,9 @@ pub struct ThrottleEffectConfig {
     pub start_position: u8,
     pub tc_pulse_force: u8,
     pub tc_pulse_frequency: u8,
+    pub wheel_slip_enabled: bool,
+    pub wheel_slip_throttle_threshold: f32,
+    pub wheel_slip_ratio_threshold: f32,
 }
 
 impl Default for ThrottleEffectConfig {
@@ -276,6 +301,9 @@ impl Default for ThrottleEffectConfig {
             start_position: 2,
             tc_pulse_force: 6,
             tc_pulse_frequency: 7,
+            wheel_slip_enabled: true,
+            wheel_slip_throttle_threshold: 0.02,
+            wheel_slip_ratio_threshold: 0.10,
         }
     }
 }
@@ -360,6 +388,39 @@ mod tests {
         assert_eq!(config.app.tick_hz, 120);
         assert_eq!(config.effects.brake.max_force, 6);
         assert!(config.effects.throttle.enabled);
+    }
+
+    #[test]
+    fn parses_wheel_lock_and_spin_thresholds() {
+        let config: AppConfig = toml::from_str(
+            r#"
+                [effects.brake]
+                lockup_brake_threshold = 0.05
+                lockup_slip_ratio_threshold = 0.40
+
+                [effects.throttle]
+                wheel_slip_throttle_threshold = 0.04
+                wheel_slip_ratio_threshold = 0.15
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(config.effects.brake.lockup_brake_threshold, 0.05);
+        assert_eq!(config.effects.brake.lockup_slip_ratio_threshold, 0.40);
+        assert_eq!(config.effects.throttle.wheel_slip_throttle_threshold, 0.04);
+        assert_eq!(config.effects.throttle.wheel_slip_ratio_threshold, 0.15);
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn rejects_wheel_thresholds_outside_unit_range() {
+        let mut config = AppConfig::default();
+        config.effects.brake.lockup_slip_ratio_threshold = 1.01;
+        assert!(config.validate().is_err());
+
+        let mut config = AppConfig::default();
+        config.effects.throttle.wheel_slip_ratio_threshold = -0.01;
+        assert!(config.validate().is_err());
     }
 
     #[test]
