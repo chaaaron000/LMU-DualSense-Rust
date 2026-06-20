@@ -6,7 +6,6 @@ log_level = "info"
 
 [lmu]
 shared_memory_name = "LMU_Data"
-header_path = ""
 
 [dsx]
 host = "127.0.0.1"
@@ -42,4 +41,3 @@ vibration_frequency = 10
 enabled = true
 attack = 0.45
 release = 0.25
-

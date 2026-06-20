@@ -16,6 +16,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo [INFO] LMU may be started before or after this bridge.
+echo [INFO] The bridge will retry the LMU connection every 2 seconds.
 target\debug\lmu-dualsense-bridge.exe --telemetry lmu --output dsx-udp
 set "APP_EXIT_CODE=%ERRORLEVEL%"
 pause

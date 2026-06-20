@@ -24,6 +24,10 @@ impl Smoother {
         self.value += (target - self.value) * alpha;
         self.value
     }
+
+    pub fn reset(&mut self) {
+        self.value = 0.0;
+    }
 }
 
 #[cfg(test)]
@@ -35,5 +39,13 @@ mod tests {
         let mut smoother = Smoother::new(0.5, 0.25);
         assert_eq!(smoother.update(1.0), 0.5);
         assert_eq!(smoother.update(0.0), 0.375);
+    }
+
+    #[test]
+    fn reset_clears_previous_value() {
+        let mut smoother = Smoother::new(0.5, 0.25);
+        smoother.update(1.0);
+        smoother.reset();
+        assert_eq!(smoother.update(0.0), 0.0);
     }
 }

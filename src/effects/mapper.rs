@@ -24,6 +24,8 @@ impl EffectMapper {
 
     pub fn map(&mut self, frame: TelemetryFrame) -> TriggerOutputFrame {
         if !frame.connected || !frame.player_has_vehicle {
+            self.brake_smoother.reset();
+            self.throttle_smoother.reset();
             return TriggerOutputFrame {
                 left: TriggerEffect::Normal,
                 right: TriggerEffect::Normal,
@@ -214,5 +216,25 @@ mod tests {
             mapper().map(frame).right,
             TriggerEffect::Vibrate { .. }
         ));
+    }
+
+    #[test]
+    fn disconnect_resets_smoothing_state() {
+        let mut mapper = EffectMapper::new(
+            EffectConfig::default(),
+            SmoothingConfig {
+                enabled: true,
+                attack: 0.5,
+                release: 0.25,
+            },
+        );
+        let mut frame = connected_frame();
+        frame.brake = 1.0;
+        mapper.map(frame);
+        mapper.map(TelemetryFrame::default());
+
+        let mut reconnected = connected_frame();
+        reconnected.brake = 0.04;
+        assert_eq!(mapper.map(reconnected).left, TriggerEffect::Normal);
     }
 }

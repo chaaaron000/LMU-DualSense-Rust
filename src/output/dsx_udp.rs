@@ -35,7 +35,7 @@ impl DsxUdpOutput {
             .context("DSX host resolved to no socket addresses")?;
         let socket = UdpSocket::bind("0.0.0.0:0").context("failed to bind UDP socket")?;
 
-        info!(%target, "DSX UDP output ready");
+        info!("[DSX] UDP ready | target={target}");
         Ok(Self {
             socket,
             target,
@@ -91,15 +91,24 @@ impl DsxPacketEncoder {
                 parameters.push(json!((*start).min(9)));
                 parameters.push(json!(scale(*force, 8)));
             }
-            TriggerEffect::Pulse { .. } => {
-                // Steam DSX v2's VibrateTriggerPulse preset does not expose the
-                // internal start/force/frequency values.
-                parameters.push(json!(11));
-            }
-            TriggerEffect::Vibrate { force, .. } => {
-                // Steam DSX v2 VibrateTrigger accepts only an intensity byte.
-                parameters.push(json!(8));
-                parameters.push(json!(scale(*force, 255)));
+            TriggerEffect::Pulse {
+                start,
+                force,
+                frequency,
+            } => encode_machine(&mut parameters, *start, *force, 0, *frequency),
+            TriggerEffect::Vibrate {
+                start,
+                force,
+                frequency,
+            } => {
+                let strength_a = scale(*force, 8);
+                encode_machine_scaled(
+                    &mut parameters,
+                    *start,
+                    strength_a,
+                    strength_a / 2,
+                    *frequency,
+                );
             }
         }
 
@@ -111,6 +120,38 @@ impl DsxPacketEncoder {
         })
         .context("failed to serialize DSX packet")
     }
+}
+
+fn encode_machine(
+    parameters: &mut Vec<Value>,
+    start: u8,
+    strength_a: u8,
+    strength_b: u8,
+    frequency: u8,
+) {
+    encode_machine_scaled(
+        parameters,
+        start,
+        scale(strength_a, 8),
+        scale(strength_b, 8),
+        frequency,
+    );
+}
+
+fn encode_machine_scaled(
+    parameters: &mut Vec<Value>,
+    start: u8,
+    strength_a: u16,
+    strength_b: u16,
+    frequency: u8,
+) {
+    parameters.push(json!(18));
+    parameters.push(json!(scale(start, 9)));
+    parameters.push(json!(9));
+    parameters.push(json!(strength_a));
+    parameters.push(json!(strength_b));
+    parameters.push(json!(scale(frequency, 255)));
+    parameters.push(json!(0));
 }
 
 fn scale(value: u8, maximum: u16) -> u16 {
@@ -158,7 +199,7 @@ mod tests {
         );
         assert_eq!(
             right,
-            r#"{"instructions":[{"type":1,"parameters":[0,2,8,179]}]}"#
+            r#"{"instructions":[{"type":1,"parameters":[0,2,18,2,9,6,3,255,0]}]}"#
         );
     }
 
@@ -182,7 +223,27 @@ mod tests {
         );
         assert_eq!(
             right,
-            r#"{"instructions":[{"type":1,"parameters":[1,2,11]}]}"#
+            r#"{"instructions":[{"type":1,"parameters":[1,2,18,2,9,5,0,179,0]}]}"#
+        );
+    }
+
+    #[test]
+    fn clamps_machine_parameters() {
+        let encoder = DsxPacketEncoder::new(0);
+        let [left, _] = encoder
+            .encode_frame(&TriggerOutputFrame {
+                left: TriggerEffect::Pulse {
+                    start: u8::MAX,
+                    force: u8::MAX,
+                    frequency: u8::MAX,
+                },
+                right: TriggerEffect::Normal,
+            })
+            .unwrap();
+
+        assert_eq!(
+            left,
+            r#"{"instructions":[{"type":1,"parameters":[0,1,18,9,9,8,0,255,0]}]}"#
         );
     }
 

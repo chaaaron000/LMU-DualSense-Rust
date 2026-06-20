@@ -42,26 +42,32 @@ impl App {
 
             match self.reader.poll() {
                 Ok(frame) => {
-                    if telemetry_log.ready() {
-                        info!(
-                            connected = frame.connected,
-                            vehicle = frame.player_has_vehicle,
-                            throttle = format_args!("{:.2}", frame.throttle),
-                            brake = format_args!("{:.2}", frame.brake),
-                            rpm = format_args!("{:.0}/{:.0}", frame.rpm, frame.max_rpm),
-                            gear = frame.gear,
-                            abs = frame.abs_active,
-                            tc = frame.tc_active,
-                            "telemetry"
-                        );
+                    let trigger_frame = self.mapper.map(frame);
+                    if telemetry_log.ready() && frame.connected {
+                        if frame.player_has_vehicle {
+                            info!(
+                                "[LIVE] G {:>2} | {:>3.0} km/h | RPM {:>5.0}/{:<5.0} | THR {:>3.0}% | BRK {:>3.0}% | ABS {} | TC {} | L2 {} | R2 {}",
+                                frame.gear,
+                                frame.speed_mps * 3.6,
+                                frame.rpm,
+                                frame.max_rpm,
+                                frame.throttle * 100.0,
+                                frame.brake * 100.0,
+                                active_label(frame.abs_active),
+                                active_label(frame.tc_active),
+                                trigger_frame.left,
+                                trigger_frame.right,
+                            );
+                        } else {
+                            info!("[LIVE] LMU connected | Waiting for player vehicle");
+                        }
                     }
 
-                    let trigger_frame = self.mapper.map(frame);
                     if let Err(error) = self.output.send(&trigger_frame) {
-                        warn!(%error, "trigger output failed");
+                        warn!("[OUTPUT] Send failed | {error}");
                     }
                 }
-                Err(error) => warn!(%error, "telemetry poll failed"),
+                Err(error) => warn!("[TELEMETRY] Poll failed | {error}"),
             }
 
             let now = Instant::now();
@@ -71,5 +77,13 @@ impl App {
                 next_tick = now;
             }
         }
+    }
+}
+
+fn active_label(active: bool) -> &'static str {
+    if active {
+        "ON "
+    } else {
+        "OFF"
     }
 }

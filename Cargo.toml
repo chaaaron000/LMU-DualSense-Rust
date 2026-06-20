@@ -1,6 +1,6 @@
 [package]
 name = "lmu-dualsense-bridge"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
@@ -11,4 +11,10 @@ serde_json = "1"
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = "0.3"
-
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+] }

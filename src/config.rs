@@ -192,14 +192,12 @@ impl Default for AppSection {
 #[serde(default)]
 pub struct LmuConfig {
     pub shared_memory_name: String,
-    pub header_path: String,
 }
 
 impl Default for LmuConfig {
     fn default() -> Self {
         Self {
             shared_memory_name: "LMU_Data".to_owned(),
-            header_path: String::new(),
         }
     }
 }
@@ -349,6 +347,9 @@ mod tests {
             r#"
                 [app]
                 tick_hz = 120
+
+                [lmu]
+                header_path = "legacy-value-is-ignored"
 
                 [effects.brake]
                 max_force = 6

@@ -16,10 +16,8 @@ fn main() -> Result<()> {
     init_logging(&config.app.log_level);
 
     info!(
-        telemetry = %config.app.telemetry_source,
-        output = %config.app.output,
-        tick_hz = config.app.tick_hz,
-        "configuration loaded"
+        "[APP] Started | telemetry={} | output={} | tick={} Hz",
+        config.app.telemetry_source, config.app.output, config.app.tick_hz
     );
 
     let reader: Box<dyn TelemetryReader> = match config.app.telemetry_source {
@@ -28,7 +26,7 @@ fn main() -> Result<()> {
     };
 
     let output: Box<dyn TriggerOutput> = match config.app.output {
-        OutputKind::Null => Box::new(NullOutput::default()),
+        OutputKind::Null => Box::new(NullOutput),
         OutputKind::DsxUdp => Box::new(DsxUdpOutput::new(&config.dsx)?),
     };
 
@@ -45,5 +43,10 @@ fn init_logging(level: &str) {
         _ => LevelFilter::INFO,
     };
 
-    tracing_subscriber::fmt().with_max_level(level).init();
+    tracing_subscriber::fmt()
+        .with_max_level(level)
+        .without_time()
+        .with_target(false)
+        .compact()
+        .init();
 }
